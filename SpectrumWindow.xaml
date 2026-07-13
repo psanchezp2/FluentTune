@@ -1,0 +1,42 @@
+<Window x:Class="FluentTune.SpectrumWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FluentTune Spectrum"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="Manual"
+        Focusable="False"
+        Width="290" Height="46">
+    <Grid x:Name="RootGrid" Background="#01000000" Cursor="Hand" ToolTip="Abrir reproductor">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+            <!-- Mini album art -->
+            <Border Width="30" Height="30" CornerRadius="6">
+                <Grid>
+                    <Border CornerRadius="6" Background="#33FFFFFF" />
+                    <Border CornerRadius="6">
+                        <Border.Background>
+                            <ImageBrush ImageSource="{Binding Thumbnail}" Stretch="UniformToFill" />
+                        </Border.Background>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Title / artist -->
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center" Margin="8,0,0,0" MaxWidth="140">
+                <TextBlock Text="{Binding Title}" FontSize="11.5" FontWeight="SemiBold" Foreground="White"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Artist}" FontSize="10" Opacity="0.65" Foreground="White"
+                           TextTrimming="CharacterEllipsis" Margin="0,1,0,0" />
+            </StackPanel>
+
+            <!-- Spectrum bars -->
+            <Canvas x:Name="BarsCanvas" Width="84" Height="32" Margin="12,0,0,0" VerticalAlignment="Center"
+                    ClipToBounds="False" />
+        </StackPanel>
+    </Grid>
+</Window>

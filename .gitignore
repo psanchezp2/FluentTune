@@ -1,0 +1,21 @@
+## .NET build output
+[Bb]in/
+[Oo]bj/
+
+## Publish / packaging
+publish/
+*.zip
+
+## Logs
+*.log
+
+## IDE / editor
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+## OS junk
+Thumbs.db
+[Dd]esktop.ini
