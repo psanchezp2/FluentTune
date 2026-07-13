@@ -11,6 +11,16 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/psanchezp2/FluentTune/releases/latest/download/FluentTune.zip">
+    <img src="https://img.shields.io/badge/Download-FluentTune%20v1.0.0%20(free)-2ea44f?style=for-the-badge&logo=windows&logoColor=white" alt="Download FluentTune">
+  </a>
+</p>
+
+<p align="center">
+  <b><a href="https://github.com/psanchezp2/FluentTune/releases/latest/download/FluentTune.zip">⬇ Download the app</a></b> — free &amp; self-contained (no .NET install needed) · Windows 10/11 64-bit
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white" alt=".NET 8">
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6?logo=windows&logoColor=white" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
@@ -48,7 +58,7 @@
 ## 🚀 Getting started
 
 ### Download & run
-1. Download the latest **`FluentTune.zip`** from the [Releases](../../releases) page.
+1. **[⬇ Download FluentTune.zip](https://github.com/psanchezp2/FluentTune/releases/latest/download/FluentTune.zip)** (or from the [Releases](../../releases) page).
 2. Unzip and run **`FluentTune.exe`** — it's a self-contained build, so **no .NET install is required**.
 3. A ♪ icon appears in the system tray. Play some music and a mini widget shows up on the left of the taskbar — click it to open the player.
 
