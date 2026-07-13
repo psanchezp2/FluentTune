@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/hero.png" alt="FluentTune flyout and taskbar spectrum" width="620">
+  <img src="assets/hero.png" alt="FluentTune flyout and taskbar spectrum" width="480">
 </p>
 
 <p align="center">
@@ -33,21 +33,17 @@
 <table>
   <tr>
     <td align="center">
-      <img src="assets/spectrum.png" width="360"><br>
-      <sub>Live taskbar spectrum + mini player</sub>
+      <img src="assets/spectrum.png" width="380"><br>
+      <sub>Live, compact taskbar spectrum + mini player</sub>
     </td>
     <td align="center">
-      <img src="assets/color-adapt.png" width="360"><br>
-      <sub>UI adapts to the album's colors</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">
-      <img src="assets/waveform.png" width="520"><br>
+      <img src="assets/waveform.png" width="380"><br>
       <sub>Ocean-wave progress bar (drag to seek)</sub>
     </td>
   </tr>
 </table>
+
+> The whole UI recolors to match the current album's cover.
 
 ## 🚀 Getting started
 
