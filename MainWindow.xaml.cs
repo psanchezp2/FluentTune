@@ -116,6 +116,13 @@ public partial class MainWindow : Window
                 ? ColorExtractor.GetAccent(info.Thumbnail, DefaultAccent)
                 : DefaultAccent);
 
+            if (_tray is not null)
+            {
+                string tip = info.HasMedia ? $"{info.Title} — {info.Artist}" : "FluentTune";
+                if (tip.Length > 63) tip = tip[..60] + "...";
+                _tray.Text = tip;
+            }
+
             _spectrum?.SetActive(info.HasMedia);
 
             SetTimelineBase(info.Position, info.Duration, info.IsPlaying, info.CanSeek);
@@ -315,6 +322,18 @@ public partial class MainWindow : Window
 
     private static Drawing.Icon CreateTrayIcon()
     {
+        // Prefer the real app icon embedded in the exe; fall back to a drawn note.
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exe))
+            {
+                var ico = Drawing.Icon.ExtractAssociatedIcon(exe);
+                if (ico is not null) return ico;
+            }
+        }
+        catch { /* fall back below */ }
+
         using var bmp = new Drawing.Bitmap(32, 32);
         using (var g = Drawing.Graphics.FromImage(bmp))
         {

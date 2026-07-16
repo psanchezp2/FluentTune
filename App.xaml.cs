@@ -6,6 +6,7 @@ namespace FluentTune;
 public partial class App
 {
     private static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "fluenttune.log");
+    private static Mutex? _instanceMutex;
 
     public static void Log(string msg)
     {
@@ -16,6 +17,15 @@ public partial class App
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Single instance: a second launch just exits quietly.
+        _instanceMutex = new Mutex(true, "FluentTune_SingleInstance", out bool isFirst);
+        if (!isFirst)
+        {
+            Shutdown();
+            return;
+        }
+
         try { File.WriteAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff}  === startup ==={Environment.NewLine}"); } catch { }
 
         DispatcherUnhandledException += (_, args) =>

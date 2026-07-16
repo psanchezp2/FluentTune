@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/psanchezp2/FluentTune/releases/latest/download/FluentTune.zip">
-    <img src="https://img.shields.io/badge/Download-FluentTune%20v1.0.0%20(free)-2ea44f?style=for-the-badge&logo=windows&logoColor=white" alt="Download FluentTune">
+    <img src="https://img.shields.io/badge/Download-FluentTune%20(free)-2ea44f?style=for-the-badge&logo=windows&logoColor=white" alt="Download FluentTune">
   </a>
 </p>
 
