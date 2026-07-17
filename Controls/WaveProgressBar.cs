@@ -61,16 +61,17 @@ public sealed class WaveProgressBar : FrameworkElement
     {
         if (!IsVisible) return;
 
-        // Reactive amplitude: auto-gain the live audio level so the wave swells on loud
-        // passages and calms on quiet ones. Falls back to a steady swell if no provider.
+        // Reactive amplitude: the wave clearly swells on loud passages and calms on quiet ones.
         double reactive;
         if (LevelProvider is not null)
         {
             float level = LevelProvider();
-            _levelAgc = Math.Max(level, _levelAgc * 0.99f);
-            if (_levelAgc < 1e-4f) _levelAgc = 1e-4f;
+            // Slow auto-gain tracks the track's overall loudness; momentary peaks push the wave up.
+            _levelAgc = Math.Max(level, _levelAgc * 0.996f);
+            if (_levelAgc < 8e-4f) _levelAgc = 8e-4f;
             double norm = Math.Clamp(level / _levelAgc, 0, 1);
-            reactive = 0.8 + 4.4 * norm;
+            norm = Math.Pow(norm, 1.3);          // punchier dynamics
+            reactive = 0.5 + 5.5 * norm;         // ~flat when quiet, tall on the loud parts
         }
         else
         {
@@ -78,7 +79,8 @@ public sealed class WaveProgressBar : FrameworkElement
         }
 
         double targetAmp = IsActive ? reactive : 0.0;
-        _amp += (targetAmp - _amp) * 0.18;
+        double k = targetAmp > _amp ? 0.4 : 0.12; // quick swell, smooth settle
+        _amp += (targetAmp - _amp) * k;
         if (IsActive) _phase += 0.12; // gentle rolling motion
         InvalidateVisual();
     }

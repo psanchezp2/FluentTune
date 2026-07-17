@@ -54,13 +54,17 @@ public partial class SpectrumWindow : Window
     private readonly DispatcherTimer _topmostTimer = new() { Interval = TimeSpan.FromMilliseconds(800) };
     private IntPtr _hwnd;
 
+    private const int Half = (BarCount + 1) / 2;   // bands mirrored around the centre
+
     private readonly AudioSpectrumService _spectrum;
     private Rectangle[] _bars = Array.Empty<Rectangle>();
-    private readonly float[] _raw = new float[BarCount];
-    private readonly float[] _smooth = new float[BarCount];
-    private readonly float[] _display = new float[BarCount];
+    private readonly float[] _band = new float[Half];
+    private readonly float[] _smooth = new float[Half];
     private float _agc = 1e-4f;
     private Color _accent = Color.FromRgb(0x4C, 0xC2, 0xFF);
+
+    /// <summary>Bounds of the widget in physical pixels (for click-outside detection).</summary>
+    public (int L, int T, int R, int B) WidgetBounds => (_rectL, _rectT, _rectR, _rectB);
 
     /// <summary>Raised when the user clicks the taskbar widget.</summary>
     public event Action? WidgetClicked;
@@ -183,19 +187,19 @@ public partial class SpectrumWindow : Window
         };
     }
 
-    /// <summary>Paint a smooth horizontal colour gradient across the bars (light → accent → deep).</summary>
+    /// <summary>Symmetric colour: bright at the centre, deeper toward the edges (matches the mirror).</summary>
     private void ApplyBarColors()
     {
         if (_bars.Length == 0) return;
 
-        Color left = Lighten(_accent, 95);
-        Color mid = _accent;
-        Color right = Deepen(_accent);
+        Color bright = Lighten(_accent, 55);
+        Color deep = Deepen(_accent);
+        double centre = (_bars.Length - 1) / 2.0;
 
         for (int i = 0; i < _bars.Length; i++)
         {
-            double t = _bars.Length <= 1 ? 0 : (double)i / (_bars.Length - 1);
-            Color baseC = t < 0.5 ? Lerp(left, mid, t * 2) : Lerp(mid, right, (t - 0.5) * 2);
+            double dc = centre <= 0 ? 0 : Math.Abs(i - centre) / centre; // 0 = centre, 1 = edge
+            Color baseC = Lerp(bright, deep, dc);
 
             var g = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
             g.GradientStops.Add(new GradientStop(Lighten(baseC, 45), 0));
@@ -215,36 +219,42 @@ public partial class SpectrumWindow : Window
     {
         if (!_spectrum.IsRunning || _bars.Length == 0) return;
 
-        _spectrum.GetBars(_raw);
+        // Only half as many bands — they get mirrored, so bass sits in the centre.
+        _spectrum.GetBars(_band);
 
         float max = 0;
-        for (int i = 0; i < BarCount; i++)
-            if (_raw[i] > max) max = _raw[i];
+        for (int i = 0; i < Half; i++)
+            if (_band[i] > max) max = _band[i];
 
         _agc = Math.Max(max, _agc * 0.985f);
         if (_agc < 1e-4f) _agc = 1e-4f;
 
         bool quiet = max < 0.006f;
 
-        for (int i = 0; i < BarCount; i++)
+        for (int i = 0; i < Half; i++)
         {
-            float target = quiet ? 0f : Math.Clamp(_raw[i] / _agc, 0f, 1f);
-            float rate = target > _smooth[i] ? 0.5f : 0.08f; // fast attack, slow release (gradual pause)
+            float target = quiet ? 0f : Math.Clamp(_band[i] / _agc, 0f, 1f);
+            float rate = target > _smooth[i] ? 0.5f : 0.08f; // fast attack, slow release
             _smooth[i] += (target - _smooth[i]) * rate;
         }
 
-        // Light spatial smoothing => a flowing waveform rather than jumpy spikes.
         double h = BarsCanvas.ActualHeight > 0 ? BarsCanvas.ActualHeight : BarsCanvas.Height;
-        for (int i = 0; i < BarCount; i++)
-        {
-            float l = _smooth[Math.Max(0, i - 1)];
-            float r = _smooth[Math.Min(BarCount - 1, i + 1)];
-            _display[i] = (l + 2 * _smooth[i] + r) / 4f;
+        int center = BarCount / 2;
 
-            double bh = _display[i] < 0.012 ? 0 : 3 + _display[i] * (h - 4);
-            _bars[i].Height = bh;
-            Canvas.SetTop(_bars[i], (h - bh) / 2); // grow from the centre line
+        // Mirror: band 0 (bass) lands on the two centre bars, higher bands fan out to the edges.
+        for (int j = 0; j < Half; j++)
+        {
+            double bh = _smooth[j] < 0.012 ? 0 : 3 + _smooth[j] * (h - 4);
+            SetBar(center + j, bh, h);       // right side
+            SetBar(center - 1 - j, bh, h);   // left side
         }
+    }
+
+    private void SetBar(int index, double barHeight, double canvasHeight)
+    {
+        if (index < 0 || index >= _bars.Length) return;
+        _bars[index].Height = barHeight;
+        Canvas.SetTop(_bars[index], (canvasHeight - barHeight) / 2); // grow from the centre line
     }
 
     protected override void OnClosed(EventArgs e)

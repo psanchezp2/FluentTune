@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -18,6 +20,21 @@ public partial class MainWindow : Window
     private readonly NowPlayingViewModel _vm = new();
 
     private SpectrumWindow? _spectrum;
+
+    // Global mouse hook to close the flyout when the user clicks anywhere outside it.
+    private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+    [DllImport("user32.dll")] private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+    [DllImport("user32.dll")] private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? lpModuleName);
+    private const int WH_MOUSE_LL = 14;
+    private const int WM_LBUTTONDOWN = 0x0201;
+    [StructLayout(LayoutKind.Sequential)] private struct POINT { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MSLLHOOKSTRUCT { public POINT pt; public uint mouseData; public uint flags; public uint time; public IntPtr dwExtraInfo; }
+    private IntPtr _mouseHook;
+    private LowLevelMouseProc? _mouseProc;
+    private int _flyL, _flyT, _flyR, _flyB; // flyout bounds in physical pixels
 
     private readonly DispatcherTimer _positionTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer _hideTimer = new() { Interval = TimeSpan.FromSeconds(5) };
@@ -85,10 +102,30 @@ public partial class MainWindow : Window
         _spectrum.Show();
         _spectrum.SetAccent(_accent);
 
+        // Close the flyout when the user clicks anywhere outside it.
+        _mouseProc = MouseHookCallback;
+        _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, GetModuleHandle(null), 0);
+
         // Media
         _media.NowPlayingChanged += OnNowPlaying;
         _media.TimelineChanged += OnTimeline;
         await _media.InitializeAsync();
+    }
+
+    private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && wParam.ToInt32() == WM_LBUTTONDOWN && IsVisible && Opacity > 0.5)
+        {
+            var data = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+            int x = data.pt.X, y = data.pt.Y;
+            bool insideFlyout = x >= _flyL && x <= _flyR && y >= _flyT && y <= _flyB;
+            // Clicks on the taskbar widget are handled by its own toggle — ignore them here.
+            var wb = _spectrum?.WidgetBounds ?? (0, 0, 0, 0);
+            bool insideWidget = x >= wb.L && x <= wb.R && y >= wb.T && y <= wb.B;
+            if (!insideFlyout && !insideWidget)
+                Dispatcher.BeginInvoke(new Action(HideWidget));
+        }
+        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
     }
 
     private void OnContentRendered(object? sender, EventArgs e)
@@ -248,6 +285,17 @@ public partial class MainWindow : Window
         var h = ActualHeight > 0 ? ActualHeight : 200;
         Left = wa.Left - 8;
         Top = wa.Bottom - h + 16;
+
+        // Physical bounds of the visible card (window minus the shadow margin) for click-outside.
+        var src = PresentationSource.FromVisual(this);
+        double dpiX = src?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+        double dpiY = src?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+        const double margin = 24;
+        double w = ActualWidth > 0 ? ActualWidth : Width;
+        _flyL = (int)Math.Round((Left + margin) * dpiX);
+        _flyT = (int)Math.Round((Top + margin) * dpiY);
+        _flyR = (int)Math.Round((Left + w - margin) * dpiX);
+        _flyB = (int)Math.Round((Top + h - margin) * dpiY);
     }
 
     private void AnimateArt()
@@ -289,7 +337,7 @@ public partial class MainWindow : Window
         _spectrum?.SetAccent(accent);
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => HideWidget();
+    private void Close_Click(object sender, MouseButtonEventArgs e) => HideWidget();
 
     // ---------- Tray ----------
 
@@ -351,6 +399,7 @@ public partial class MainWindow : Window
         _reallyExit = true;
         _hideTimer.Stop();
         _positionTimer.Stop();
+        if (_mouseHook != IntPtr.Zero) { UnhookWindowsHookEx(_mouseHook); _mouseHook = IntPtr.Zero; }
         if (_tray is not null) { _tray.Visible = false; _tray.Dispose(); }
         _spectrum?.Close();
         _spectrumService.Dispose();
