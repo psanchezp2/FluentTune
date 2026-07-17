@@ -32,9 +32,10 @@
 
 - **Now-playing flyout** — album art, title/artist, transport controls (previous / play-pause / next) and system volume, in a translucent *liquid-glass* card.
 - **Album-color adaptation** — the whole UI (glow, accent, controls, spectrum) recolors to match the current song's cover.
-- **Taskbar audio spectrum** — a live, glowing spectrum visualizer sits on the left of the taskbar next to a mini now-playing. It reacts to the audio and eases down smoothly when you pause.
-- **Ocean-wave progress bar** — an Android-style wavy seek bar that pulses with the music. Drag to seek.
-- **Click to open** — click the taskbar widget to toggle the flyout.
+- **Taskbar audio spectrum** — a live, glowing, symmetric spectrum visualizer sits on the left of the taskbar next to a mini now-playing. It reacts to the audio and eases down smoothly when you pause.
+- **Ocean-wave progress bar** — an Android-style wavy seek bar that swells with the music (loud = bigger waves). Drag to seek.
+- **Caps / Num / Scroll Lock OSD** — a centered on-screen notification pops up when you toggle a lock key, like the paid apps.
+- **Open it your way** — click the taskbar widget, press the global hotkey (**Ctrl+Alt+K**), or use the tray. Click anywhere outside (or the ✕) to close — no auto-timeout.
 - **System-tray resident** — show, *start with Windows*, and quit from the tray menu.
 - **Works with any player** — reads the Windows media session (GSMTC), so it controls Spotify, browsers, and more.
 

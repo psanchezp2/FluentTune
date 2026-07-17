@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly NowPlayingViewModel _vm = new();
 
     private SpectrumWindow? _spectrum;
+    private LockKeyWindow? _lockKeys;
 
     // Global mouse hook to close the flyout when the user clicks anywhere outside it.
     private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -36,9 +37,25 @@ public partial class MainWindow : Window
     private LowLevelMouseProc? _mouseProc;
     private int _flyL, _flyT, _flyR, _flyB; // flyout bounds in physical pixels
 
-    private readonly DispatcherTimer _positionTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
-    private readonly DispatcherTimer _hideTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    // Global hotkey (Ctrl+Alt+M) to toggle the flyout.
+    [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+    [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+    private const int HOTKEY_ID = 0xB001;
+    private const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_SHIFT = 0x4;
+    private const int WM_HOTKEY = 0x0312;
+    private IntPtr _hotkeyHwnd;
+    private string _hotkeyName = "";
 
+    private static readonly (uint Mod, uint Vk, string Name)[] HotkeyCandidates =
+    {
+        (MOD_CONTROL | MOD_ALT, 0x4D, "Ctrl+Alt+M"),
+        (MOD_CONTROL | MOD_ALT, 0x4B, "Ctrl+Alt+K"),
+        (MOD_CONTROL | MOD_SHIFT, 0x4D, "Ctrl+Shift+M"),
+        (MOD_CONTROL | MOD_ALT, 0x50, "Ctrl+Alt+P"),
+        (MOD_CONTROL | MOD_SHIFT, 0x78, "Ctrl+Shift+F9"),
+    };
+
+    private readonly DispatcherTimer _positionTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private WinForms.NotifyIcon? _tray;
 
     // Baseline for interpolating the playback position between updates.
@@ -62,11 +79,10 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _vm;
 
-        Wave.Interacting += () => { _userSeeking = true; _hideTimer.Stop(); };
+        Wave.Interacting += () => _userSeeking = true;
         Wave.Seek += async seconds =>
         {
             _userSeeking = false;
-            RestartHideCountdown();
             if (_canSeek) await _media.SeekAsync(TimeSpan.FromSeconds(seconds));
         };
         Wave.LevelProvider = () => _spectrumService.GetLevel(); // wave pulses with the music
@@ -85,10 +101,6 @@ public partial class MainWindow : Window
 
         _positionTimer.Tick += (_, _) => UpdateInterpolatedPosition();
         _positionTimer.Start();
-        _hideTimer.Tick += OnHideTick;
-
-        MouseEnter += (_, _) => _hideTimer.Stop();
-        MouseLeave += (_, _) => RestartHideCountdown();
 
         // Volume
         VolumeSlider.IsEnabled = _volume.IsAvailable;
@@ -105,6 +117,11 @@ public partial class MainWindow : Window
         // Close the flyout when the user clicks anywhere outside it.
         _mouseProc = MouseHookCallback;
         _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, GetModuleHandle(null), 0);
+
+        // Centered OSD for Caps / Num / Scroll Lock.
+        _lockKeys = new LockKeyWindow();
+        _lockKeys.Show();
+        _lockKeys.Hide();
 
         // Media
         _media.NowPlayingChanged += OnNowPlaying;
@@ -128,11 +145,37 @@ public partial class MainWindow : Window
         return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
     }
 
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        _hotkeyHwnd = new WindowInteropHelper(this).Handle;
+        foreach (var (mod, vk, name) in HotkeyCandidates)
+        {
+            if (RegisterHotKey(_hotkeyHwnd, HOTKEY_ID, mod, vk))
+            {
+                _hotkeyName = name;
+                break;
+            }
+        }
+        App.Log($"hotkey bound = '{_hotkeyName}'");
+        HwndSource.FromHwnd(_hotkeyHwnd)?.AddHook(HotkeyProc);
+    }
+
+    private IntPtr HotkeyProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+        {
+            ToggleWidget();
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
     private void OnContentRendered(object? sender, EventArgs e)
     {
         if (_shownOnce) return;
         _shownOnce = true;
-        ShowWidget(); // initial peek so the user sees it come up
+        Hide(); // start hidden — the flyout opens only when the taskbar widget is clicked
     }
 
     // ---------- Media ----------
@@ -205,9 +248,9 @@ public partial class MainWindow : Window
 
     // ---------- Transport ----------
 
-    private async void Previous_Click(object sender, RoutedEventArgs e) { RestartHideCountdown(); await _media.PreviousAsync(); }
-    private async void PlayPauseBorder_Click(object sender, MouseButtonEventArgs e) { RestartHideCountdown(); await _media.TogglePlayPauseAsync(); }
-    private async void Next_Click(object sender, RoutedEventArgs e) { RestartHideCountdown(); await _media.NextAsync(); }
+    private async void Previous_Click(object sender, RoutedEventArgs e) => await _media.PreviousAsync();
+    private async void PlayPauseBorder_Click(object sender, MouseButtonEventArgs e) => await _media.TogglePlayPauseAsync();
+    private async void Next_Click(object sender, RoutedEventArgs e) => await _media.NextAsync();
 
     // ---------- Volume ----------
 
@@ -222,7 +265,6 @@ public partial class MainWindow : Window
     {
         if (_suppressVolume) return;
         _volume.SetVolume((float)e.NewValue);
-        RestartHideCountdown();
     }
 
     // ---------- Show / hide ----------
@@ -246,8 +288,6 @@ public partial class MainWindow : Window
 
         RootTransform.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slide);
         BeginAnimation(OpacityProperty, fade);
-
-        RestartHideCountdown();
     }
 
     private void HideWidget()
@@ -261,14 +301,6 @@ public partial class MainWindow : Window
 
         RootTransform.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slide);
         BeginAnimation(OpacityProperty, fade);
-    }
-
-    private void RestartHideCountdown() { _hideTimer.Stop(); _hideTimer.Start(); }
-
-    private void OnHideTick(object? sender, EventArgs e)
-    {
-        _hideTimer.Stop();
-        if (!IsMouseOver && !_userSeeking) HideWidget();
     }
 
     private void ToggleWidget()
@@ -351,7 +383,8 @@ public partial class MainWindow : Window
         };
 
         var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("Mostrar", null, (_, _) => ShowWidget());
+        string showLabel = string.IsNullOrEmpty(_hotkeyName) ? "Mostrar" : $"Mostrar  ({_hotkeyName})";
+        menu.Items.Add(showLabel, null, (_, _) => ShowWidget());
 
         var startup = new WinForms.ToolStripMenuItem("Iniciar con Windows")
         {
@@ -397,10 +430,11 @@ public partial class MainWindow : Window
     private void ExitApp()
     {
         _reallyExit = true;
-        _hideTimer.Stop();
+        if (_hotkeyHwnd != IntPtr.Zero) UnregisterHotKey(_hotkeyHwnd, HOTKEY_ID);
         _positionTimer.Stop();
         if (_mouseHook != IntPtr.Zero) { UnhookWindowsHookEx(_mouseHook); _mouseHook = IntPtr.Zero; }
         if (_tray is not null) { _tray.Visible = false; _tray.Dispose(); }
+        _lockKeys?.Close();
         _spectrum?.Close();
         _spectrumService.Dispose();
         _volume.Dispose();
