@@ -36,6 +36,7 @@
 - **Ocean-wave progress bar** — an Android-style wavy seek bar that swells with the music (loud = bigger waves). Drag to seek.
 - **Caps / Num / Scroll Lock OSD** — a centered on-screen notification pops up when you toggle a lock key, like the paid apps.
 - **Open it your way** — click the taskbar widget, press the global hotkey (**Ctrl+Alt+K**), or use the tray. Click anywhere outside (or the ✕) to close — no auto-timeout.
+- **Scroll to change volume** — spin the mouse wheel over the taskbar widget to raise/lower the system volume without opening anything.
 - **System-tray resident** — show, *start with Windows*, and quit from the tray menu.
 - **Works with any player** — reads the Windows media session (GSMTC), so it controls Spotify, browsers, and more.
 

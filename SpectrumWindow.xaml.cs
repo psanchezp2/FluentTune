@@ -42,6 +42,7 @@ public partial class SpectrumWindow : Window
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? lpModuleName);
     private const int WH_MOUSE_LL = 14;
     private const int WM_LBUTTONDOWN = 0x0201;
+    private const int WM_MOUSEWHEEL = 0x020A;
 
     [StructLayout(LayoutKind.Sequential)] private struct POINT { public int X; public int Y; }
     [StructLayout(LayoutKind.Sequential)]
@@ -68,6 +69,9 @@ public partial class SpectrumWindow : Window
 
     /// <summary>Raised when the user clicks the taskbar widget.</summary>
     public event Action? WidgetClicked;
+
+    /// <summary>Raised when the user scrolls over the widget; +1/-1 per wheel notch.</summary>
+    public event Action<int>? WidgetScrolled;
 
     public SpectrumWindow(AudioSpectrumService spectrum, NowPlayingViewModel vm)
     {
@@ -96,11 +100,28 @@ public partial class SpectrumWindow : Window
 
     private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0 && wParam.ToInt32() == WM_LBUTTONDOWN && IsVisible)
+        if (nCode >= 0 && IsVisible)
         {
-            var data = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-            if (data.pt.X >= _rectL && data.pt.X <= _rectR && data.pt.Y >= _rectT && data.pt.Y <= _rectB)
-                Dispatcher.BeginInvoke(new Action(() => WidgetClicked?.Invoke()));
+            int msg = wParam.ToInt32();
+            if (msg is WM_LBUTTONDOWN or WM_MOUSEWHEEL)
+            {
+                var data = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                bool inside = data.pt.X >= _rectL && data.pt.X <= _rectR && data.pt.Y >= _rectT && data.pt.Y <= _rectB;
+                if (inside)
+                {
+                    if (msg == WM_LBUTTONDOWN)
+                    {
+                        Dispatcher.BeginInvoke(new Action(() => WidgetClicked?.Invoke()));
+                    }
+                    else
+                    {
+                        // Wheel delta lives in the high word of mouseData (±120 per notch).
+                        int steps = (short)((data.mouseData >> 16) & 0xFFFF) / 120;
+                        if (steps != 0)
+                            Dispatcher.BeginInvoke(new Action(() => WidgetScrolled?.Invoke(steps)));
+                    }
+                }
+            }
         }
         return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
     }

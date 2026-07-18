@@ -111,6 +111,8 @@ public partial class MainWindow : Window
         _spectrumService.Start();
         _spectrum = new SpectrumWindow(_spectrumService, _vm);
         _spectrum.WidgetClicked += ToggleWidget;   // click the taskbar widget to open/close the flyout
+        _spectrum.WidgetScrolled += steps =>       // scroll over the widget = system volume
+            _volume.SetVolume(_volume.GetVolume() + steps * 0.04f);
         _spectrum.Show();
         _spectrum.SetAccent(_accent);
 

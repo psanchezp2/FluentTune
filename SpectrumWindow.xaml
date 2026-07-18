@@ -12,7 +12,8 @@
         WindowStartupLocation="Manual"
         Focusable="False"
         Width="290" Height="46">
-    <Grid x:Name="RootGrid" Background="#01000000" Cursor="Hand" ToolTip="Abrir reproductor">
+    <Grid x:Name="RootGrid" Background="#01000000" Cursor="Hand"
+          ToolTip="Click: abrir reproductor  ·  Rueda: volumen">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
             <!-- Mini album art -->
             <Border Width="30" Height="30" CornerRadius="6">
